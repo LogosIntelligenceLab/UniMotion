@@ -1,0 +1,83 @@
+# UniMotion pretraining configuration.
+defaults:
+  - _self_
+
+action: fit
+ckpt_path: null
+seed: 817
+tasks: [sim, pred]
+output_dir: ${hydra:runtime.output_dir}
+
+data:
+  cache_root: ${hydra:runtime.cwd}/dataset
+  train_batch_size: 4
+  val_batch_size: 10
+  num_workers: 4
+  train_interval: 5
+  max_agents: 32
+  synthetic_count: 0
+  tokenizer:
+    map_token_file: map_traj_token5.pkl
+    agent_token_file: agent_vocab_555_s2.pkl
+    map_token_sampling: {num_k: 1, temp: 1.0}
+    agent_token_sampling: {num_k: 1, temp: 1.0}
+    num_historical_steps: 11
+    num_future_steps: 80
+    # Additional scene normalization is disabled.
+    normalize: false
+
+model:
+  decoder:
+    hidden_dim: 128
+    n_token_agent: 2048
+    num_freq_bands: 64
+    num_heads: 8
+    head_dim: 16
+    dropout: 0.1
+    hist_drop_prob: 0.1
+    num_map_layers: 3
+    num_agent_layers: 6
+    pl2pl_radius: 10
+    pl2a_radius: 40
+    a2a_radius: 60
+    time_span: 30
+    num_historical_steps: 11
+    num_future_steps: 80
+    checkpoint: true
+  loss:
+    label_smoothing: 0.1
+    use_gt_raw: true
+    ntp_weight: 1.0
+    regression_weight: 1.0
+    classification_weight: 1.0
+  optimizer:
+    lr: 0.0005
+    weight_decay: 0.01
+    min_ratio: 0.01
+    epochs: ${trainer.max_epochs}
+
+trainer:
+  accelerator: gpu
+  devices: 1
+  strategy: auto
+  precision: 32-true
+  max_epochs: 32
+  max_steps: -1
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  num_sanity_val_steps: 2
+  gradient_clip_val: 0.5
+  accumulate_grad_batches: 1
+  deterministic: false
+  enable_progress_bar: true
+
+logger:
+  _target_: lightning.pytorch.loggers.CSVLogger
+  save_dir: ${output_dir}
+  name: metrics
+
+hydra:
+  run:
+    dir: logs/pretrain/${now:%Y-%m-%d_%H-%M-%S}
+  job:
+    chdir: false
